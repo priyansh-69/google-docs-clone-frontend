@@ -17,7 +17,7 @@ export default function Dashboard() {
 
     const fetchDocuments = async () => {
         try {
-            const response = await axios.get("http://localhost:3001/api/documents")
+            const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/documents`)
             setDocuments(response.data)
         } catch (error) {
             console.error("Error fetching documents:", error)
@@ -30,7 +30,7 @@ export default function Dashboard() {
     const handleCreateDocument = async () => {
         const documentId = uuidV4()
         try {
-            await axios.post("http://localhost:3001/api/documents", {
+            await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/documents`, {
                 documentId,
                 title: "Untitled Document"
             })
@@ -49,7 +49,7 @@ export default function Dashboard() {
         e.stopPropagation()
         if (window.confirm("Are you sure you want to delete this document?")) {
             try {
-                await axios.delete(`http://localhost:3001/api/documents/${documentId}`)
+                await axios.delete(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}`)
                 setDocuments(documents.filter(doc => doc._id !== documentId))
             } catch (error) {
                 console.error("Error deleting document:", error)

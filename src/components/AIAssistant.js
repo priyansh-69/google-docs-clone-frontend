@@ -33,7 +33,7 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
         setResult("")
 
         try {
-            const response = await axios.post("http://localhost:3001/api/ai/process", {
+            const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/ai/process`, {
                 text: selectedText,
                 action
             })

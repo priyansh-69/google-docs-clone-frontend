@@ -37,7 +37,7 @@ export default function TextEditor() {
 
   // Initialize socket connection
   useEffect(() => {
-    const s = io("http://localhost:3001")
+    const s = io(process.env.REACT_APP_API_BASE_URL)
     setSocket(s)
 
     s.on("connect", () => {
@@ -162,7 +162,7 @@ export default function TextEditor() {
   useEffect(() => {
     const fetchDocumentTitle = async () => {
       try {
-        const response = await axios.get(`http://localhost:3001/api/documents/${documentId}`)
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}`)
         setTitle(response.data.title || "Untitled Document")
       } catch (error) {
         console.error("Error fetching document title:", error)
@@ -178,7 +178,7 @@ export default function TextEditor() {
     const timeoutId = setTimeout(async () => {
       setIsSavingTitle(true)
       try {
-        await axios.patch(`http://localhost:3001/api/documents/${documentId}/title`, { title })
+        await axios.patch(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}/title`, { title })
       } catch (error) {
         console.error("Error saving title:", error)
       } finally {
@@ -257,7 +257,7 @@ export default function TextEditor() {
   const handleGenerateShareLink = async () => {
     try {
       const response = await axios.post(
-        `http://localhost:3001/api/documents/${documentId}/share`,
+        `${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}/share`,
         { permission: 'viewer' }
       )
       setShareLink(response.data.shareUrl)
