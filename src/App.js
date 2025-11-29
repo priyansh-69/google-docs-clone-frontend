@@ -6,6 +6,7 @@ import {
   Switch,
 } from "react-router-dom"
 import TextEditor from "./TextEditor"
+import ErrorBoundary from "./components/ErrorBoundary"
 import AuthContext, { AuthProvider } from "./context/AuthContext"
 import Dashboard from "./pages/Dashboard"
 import Login from "./pages/Login"
