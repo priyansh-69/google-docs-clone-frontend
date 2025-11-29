@@ -35,9 +35,23 @@ export default function TextEditor() {
   const [shareLink, setShareLink] = useState("")
   const [saveStatus, setSaveStatus] = useState("Saved")
 
-  // Initialize socket connection
+  // Initialize socket connection with JWT authentication
   useEffect(() => {
-    const s = io(process.env.REACT_APP_API_BASE_URL)
+    // Get JWT token from localStorage
+    const token = localStorage.getItem("token")
+
+    if (!token) {
+      console.error("No authentication token found")
+      return
+    }
+
+    // Connect with authentication
+    const s = io(process.env.REACT_APP_API_BASE_URL, {
+      auth: {
+        token: token
+      }
+    })
+
     setSocket(s)
 
     s.on("connect", () => {
@@ -50,12 +64,21 @@ export default function TextEditor() {
       console.log("Disconnected from server")
     })
 
+    s.on("connect_error", (error) => {
+      console.error("Socket connection error:", error.message)
+      setIsConnected(false)
+    })
+
+    s.on("error", (error) => {
+      console.error("Socket error:", error.message)
+      alert(error.message || "An error occurred")
+    })
+
     return () => {
       s.disconnect()
     }
   }, [])
 
-  // Load document and join collaboration
   // Load document and join collaboration
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -66,12 +89,12 @@ export default function TextEditor() {
     }
 
     socket.once("load-document", loadHandler)
-    socket.emit("get-document", { documentId, user })
+    socket.emit("get-document", { documentId })
 
     // Handle reconnection
     const connectHandler = () => {
       console.log("Reconnected, fetching latest document...")
-      socket.emit("get-document", { documentId, user })
+      socket.emit("get-document", { documentId })
     }
 
     const disconnectHandler = () => {
@@ -88,7 +111,7 @@ export default function TextEditor() {
       socket.off("disconnect", disconnectHandler)
       socket.off("load-document", loadHandler)
     }
-  }, [socket, quill, documentId, user])
+  }, [socket, quill, documentId])
 
   // Handle user joined
   useEffect(() => {
@@ -195,13 +218,17 @@ export default function TextEditor() {
     const timeoutId = setTimeout(async () => {
       setIsSavingTitle(true)
       try {
+        // Save to database first
         await axios.patch(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}/title`, { title })
-        // Broadcast title change to other users
+
+        // Only broadcast if save succeeded
         socket.emit("title-change", title)
+
+        setIsSavingTitle(false)
       } catch (error) {
         console.error("Error saving title:", error)
-      } finally {
         setIsSavingTitle(false)
+        // Don't emit to socket if save failed
       }
     }, 1000)
 

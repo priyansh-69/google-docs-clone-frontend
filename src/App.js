@@ -46,27 +46,29 @@ function ProtectedRoute({ children, ...rest }) {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Switch>
-          <Route path="/login" exact>
-            <Login />
-          </Route>
-          <Route path="/register" exact>
-            <Register />
-          </Route>
-          <ProtectedRoute path="/dashboard" exact>
-            <Dashboard />
-          </ProtectedRoute>
-          <ProtectedRoute path="/documents/:id">
-            <TextEditor />
-          </ProtectedRoute>
-          <Route path="/" exact>
-            <Redirect to="/dashboard" />
-          </Route>
-        </Switch>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <Switch>
+            <Route path="/login" exact>
+              <Login />
+            </Route>
+            <Route path="/register" exact>
+              <Register />
+            </Route>
+            <ProtectedRoute path="/dashboard" exact>
+              <Dashboard />
+            </ProtectedRoute>
+            <ProtectedRoute path="/documents/:id">
+              <TextEditor />
+            </ProtectedRoute>
+            <Route path="/" exact>
+              <Redirect to="/dashboard" />
+            </Route>
+          </Switch>
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   )
 }
 
