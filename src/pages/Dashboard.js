@@ -49,11 +49,21 @@ export default function Dashboard() {
         e.stopPropagation()
         if (window.confirm("Are you sure you want to delete this document?")) {
             try {
-                await axios.delete(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}`)
+                const token = localStorage.getItem('token')
+                await axios.delete(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                })
                 setDocuments(documents.filter(doc => doc._id !== documentId))
             } catch (error) {
                 console.error("Error deleting document:", error)
-                setError("Failed to delete document")
+                // Show specific error message from backend (e.g. "Only owner can delete")
+                if (error.response && error.response.data && error.response.data.message) {
+                    alert(error.response.data.message)
+                } else {
+                    setError("Failed to delete document")
+                }
             }
         }
     }
