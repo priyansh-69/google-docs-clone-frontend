@@ -1,5 +1,5 @@
 import axios from "axios"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import "./AIAssistant.css"
 
 export default function AIAssistant({ quill, isOpen, onClose }) {
@@ -8,23 +8,33 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
     const [result, setResult] = useState("")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
+    const [savedSelection, setSavedSelection] = useState(null) // Store original selection
 
-    const handleGetSelectedText = () => {
-        if (!quill) return
-
-        const selection = quill.getSelection()
-        if (selection && selection.length > 0) {
-            const text = quill.getText(selection.index, selection.length)
-            setSelectedText(text)
+    useEffect(() => {
+        if (isOpen && quill) {
+            const selection = quill.getSelection()
+            if (selection && selection.length > 0) {
+                const text = quill.getText(selection.index, selection.length)
+                setSelectedText(text)
+                setSavedSelection(selection) // Save the selection
+                setError("") // Clear any previous error
+            } else {
+                setSelectedText("")
+                setSavedSelection(null)
+                setError("Please select some text in the editor first")
+            }
+        } else if (!isOpen) {
+            // When closing, clear all state
+            setSelectedText("")
+            setResult("")
             setError("")
-        } else {
-            setError("Please select some text in the editor first")
+            setSavedSelection(null)
         }
-    }
+    }, [isOpen, quill])
 
     const handleProcess = async () => {
         if (!selectedText.trim()) {
-            setError("Please select text first")
+            setError("Please select some text first")
             return
         }
 
@@ -40,38 +50,33 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
 
             setResult(response.data.result)
         } catch (error) {
-            console.error("Error processing AI request:", error)
-            setError(error.response?.data?.message || "Failed to process AI request")
+            console.error("AI processing error:", error)
+            setError(error.response?.data?.message || "Failed to process text")
         } finally {
             setLoading(false)
         }
     }
 
     const handleAccept = () => {
-        if (!quill || !result) return
+        if (!quill || !result || !savedSelection) return
 
-        const selection = quill.getSelection()
-        if (selection && selection.length > 0) {
-            quill.deleteText(selection.index, selection.length, 'user')
-            quill.insertText(selection.index, result, 'user')
-            quill.setSelection(selection.index + result.length)
-        } else {
-            // If no selection, insert at cursor position
-            const cursorPosition = selection ? selection.index : quill.getLength()
-            quill.insertText(cursorPosition, result, 'user')
-            quill.setSelection(cursorPosition + result.length)
-        }
+        // Use the saved selection instead of getting current selection
+        quill.deleteText(savedSelection.index, savedSelection.length, 'user')
+        quill.insertText(savedSelection.index, result, 'user')
+        quill.setSelection(savedSelection.index + result.length, 0, 'user')
 
         // Reset state
         setSelectedText("")
         setResult("")
         setError("")
+        setSavedSelection(null)
     }
 
     const handleClear = () => {
         setSelectedText("")
         setResult("")
         setError("")
+        setSavedSelection(null)
     }
 
     if (!isOpen) return null
@@ -86,20 +91,18 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
 
                 <div className="ai-assistant-body">
                     <div className="section">
-                        <label>Step 1: Select text from the editor</label>
-                        <button onClick={handleGetSelectedText} className="btn-secondary">
-                            Get Selected Text
-                        </button>
-                        {selectedText && (
+                        <label>Selected text:</label>
+                        {selectedText ? (
                             <div className="text-preview">
-                                <strong>Selected text:</strong>
                                 <p>{selectedText}</p>
                             </div>
+                        ) : (
+                            <p className="hint">Select text in the editor and open AI Assistant</p>
                         )}
                     </div>
 
                     <div className="section">
-                        <label>Step 2: Choose an action</label>
+                        <label>Step 1: Choose an action</label>
                         <select
                             value={action}
                             onChange={(e) => setAction(e.target.value)}

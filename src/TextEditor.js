@@ -122,6 +122,22 @@ export default function TextEditor() {
     }
   }, [socket])
 
+  // Handle title updates from other users
+  useEffect(() => {
+    if (socket == null) return
+
+    const handleTitleUpdate = (newTitle) => {
+      console.log("Title updated by another user:", newTitle)
+      setTitle(newTitle)
+    }
+
+    socket.on("title-update", handleTitleUpdate)
+
+    return () => {
+      socket.off("title-update", handleTitleUpdate)
+    }
+  }, [socket])
+
   // Handle cursor updates
   useEffect(() => {
     if (socket == null || quill == null) return
@@ -174,11 +190,14 @@ export default function TextEditor() {
   // Auto-save title
   useEffect(() => {
     if (!title || title === "Untitled Document") return
+    if (socket == null) return
 
     const timeoutId = setTimeout(async () => {
       setIsSavingTitle(true)
       try {
         await axios.patch(`${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}/title`, { title })
+        // Broadcast title change to other users
+        socket.emit("title-change", title)
       } catch (error) {
         console.error("Error saving title:", error)
       } finally {
@@ -187,7 +206,7 @@ export default function TextEditor() {
     }, 1000)
 
     return () => clearTimeout(timeoutId)
-  }, [title, documentId])
+  }, [title, documentId, socket])
 
   // Auto-save document
   useEffect(() => {
