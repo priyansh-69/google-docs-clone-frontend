@@ -24,6 +24,11 @@ export default function TextEditor() {
   const { id: documentId } = useParams()
   const history = useHistory()
   const { user } = useContext(AuthContext)
+
+  // Extract share token from URL query params
+  const urlParams = new URLSearchParams(window.location.search)
+  const shareToken = urlParams.get('share')
+
   const [socket, setSocket] = useState()
   const [quill, setQuill] = useState()
   const [title, setTitle] = useState("Untitled Document")
@@ -89,12 +94,12 @@ export default function TextEditor() {
     }
 
     socket.once("load-document", loadHandler)
-    socket.emit("get-document", { documentId })
+    socket.emit("get-document", { documentId, shareToken })  // Include share token
 
     // Handle reconnection
     const connectHandler = () => {
       console.log("Reconnected, fetching latest document...")
-      socket.emit("get-document", { documentId })
+      socket.emit("get-document", { documentId, shareToken })  // Include share token
     }
 
     const disconnectHandler = () => {
@@ -111,7 +116,7 @@ export default function TextEditor() {
       socket.off("disconnect", disconnectHandler)
       socket.off("load-document", loadHandler)
     }
-  }, [socket, quill, documentId])
+  }, [socket, quill, documentId, shareToken])  // Add shareToken to dependencies
 
   // Handle user joined
   useEffect(() => {
