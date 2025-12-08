@@ -28,7 +28,7 @@ export default function Login() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h1>Login to Google Docs Clone</h1>
+                <h1>Login to FlowDocs</h1>
                 <form onSubmit={handleSubmit}>
                     {error && <div className="error-message">{error}</div>}
                     <div className="form-group">

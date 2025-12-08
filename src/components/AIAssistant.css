@@ -100,9 +100,10 @@
 .text-preview {
     margin-top: 15px;
     padding: 15px;
-    background: #f8f9fa;
+    background: #f0f4f8 !important;
     border-radius: 8px;
     border-left: 4px solid #667eea;
+    min-height: 60px;
 }
 
 .text-preview strong {
@@ -114,10 +115,18 @@
 
 .text-preview p {
     margin: 0;
-    color: #333;
+    color: #1a1a1a !important;
     line-height: 1.6;
     max-height: 150px;
     overflow-y: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    font-size: 15px;
+    font-weight: 600;
+    word-wrap: break-word;
+    background: transparent;
 }
 
 .action-select {
@@ -142,7 +151,7 @@
 }
 
 .result-box {
-    background: #f0f7ff;
+    background: #e8f4f8 !important;
     border: 2px solid #667eea;
     border-radius: 8px;
     padding: 15px;
@@ -153,9 +162,16 @@
 
 .result-box p {
     margin: 0;
-    color: #333;
+    color: #1a1a1a !important;
     line-height: 1.6;
     white-space: pre-wrap;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    font-size: 15px;
+    font-weight: 600;
+    background: transparent;
 }
 
 .result-actions {
@@ -165,4 +181,30 @@
 
 .result-actions button {
     flex: 1;
+}
+
+.error-message {
+    background: #fee;
+    border: 2px solid #fcc;
+    border-radius: 8px;
+    padding: 15px;
+    color: #c33;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    font-weight: 500;
+}
+
+.hint {
+    color: #999;
+    font-style: italic;
+    font-size: 14px;
+}
+
+/* Info message for demo mode - blue theme */
+.section:has(.error-message:contains("ℹ️")) .error-message,
+.section:has(.error-message:contains("Demo Mode")) .error-message {
+    background: #e3f2fd;
+    border-color: #90caf9;
+    color: #1565c0;
 }

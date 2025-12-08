@@ -1,4 +1,5 @@
 import { useContext } from "react"
+import { Toaster } from "react-hot-toast"
 import {
   Redirect,
   Route,
@@ -67,6 +68,29 @@ function App() {
               <Redirect to="/dashboard" />
             </Route>
           </Switch>
+          <Toaster
+            toastOptions={{
+              style: {
+                background: 'var(--card-bg)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--glass-border)',
+                backdropFilter: 'blur(10px)',
+                boxShadow: 'var(--shadow-lg)',
+              },
+              success: {
+                iconTheme: {
+                  primary: 'var(--success-color)',
+                  secondary: 'white',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: 'var(--danger-color)',
+                  secondary: 'white',
+                },
+              },
+            }}
+          />
         </AuthProvider>
       </Router>
     </ErrorBoundary>

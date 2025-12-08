@@ -12,16 +12,29 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
 
     useEffect(() => {
         if (isOpen && quill) {
-            const selection = quill.getSelection()
-            if (selection && selection.length > 0) {
-                const text = quill.getText(selection.index, selection.length)
-                setSelectedText(text)
-                setSavedSelection(selection) // Save the selection
-                setError("") // Clear any previous error
+            // Try to get selection immediately
+            let selection = quill.getSelection()
+
+            // If no selection, wait a tiny bit and try again (selection might be delayed)
+            if (!selection || selection.length === 0) {
+                setTimeout(() => {
+                    selection = quill.getSelection()
+                    if (selection && selection.length > 0) {
+                        const text = quill.getText(selection.index, selection.length)
+                        setSelectedText(text.trim())
+                        setSavedSelection(selection)
+                        setError("")
+                    } else {
+                        setSelectedText("")
+                        setSavedSelection(null)
+                        setError("⚠️ No text selected. Please:\n1. Select text in the editor first\n2. Then click the AI button")
+                    }
+                }, 10)
             } else {
-                setSelectedText("")
-                setSavedSelection(null)
-                setError("Please select some text in the editor first")
+                const text = quill.getText(selection.index, selection.length)
+                setSelectedText(text.trim())
+                setSavedSelection(selection)
+                setError("")
             }
         } else if (!isOpen) {
             // When closing, clear all state
@@ -34,7 +47,7 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
 
     const handleProcess = async () => {
         if (!selectedText.trim()) {
-            setError("Please select some text first")
+            setError("⚠️ Please select some text first")
             return
         }
 
@@ -51,7 +64,17 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
             setResult(response.data.result)
         } catch (error) {
             console.error("AI processing error:", error)
-            setError(error.response?.data?.message || "Failed to process text")
+
+            // Check for specific error types
+            if (error.response?.status === 429) {
+                setError("❌ AI Quota Exceeded\n\nThe Google Gemini API free tier limit has been reached. Please:\n• Wait a few hours for quota reset\n• Or contact the administrator to upgrade the API plan")
+            } else if (error.response?.data?.message) {
+                setError(`❌ Error: ${error.response.data.message}`)
+            } else if (error.message === "Network Error") {
+                setError("❌ Network Error\n\nCannot connect to the AI server. Please check your connection.")
+            } else {
+                setError("❌ Failed to process text\n\nPlease try again or contact support.")
+            }
         } finally {
             setLoading(false)
         }
@@ -92,13 +115,15 @@ export default function AIAssistant({ quill, isOpen, onClose }) {
                 <div className="ai-assistant-body">
                     <div className="section">
                         <label>Selected text:</label>
-                        {selectedText ? (
-                            <div className="text-preview">
+                        <div className="text-preview">
+                            {selectedText ? (
                                 <p>{selectedText}</p>
-                            </div>
-                        ) : (
-                            <p className="hint">Select text in the editor and open AI Assistant</p>
-                        )}
+                            ) : (
+                                <p className="hint" style={{ margin: 0 }}>
+                                    No text selected. Please select text in the editor first.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="section">

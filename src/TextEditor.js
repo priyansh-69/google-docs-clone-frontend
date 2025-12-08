@@ -1,11 +1,21 @@
 import axios from "axios"
 import Quill from "quill"
 import "quill/dist/quill.snow.css"
-import { useCallback, useContext, useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import toast from "react-hot-toast"
+import {
+  FiArrowLeft,
+  FiCheckCircle,
+  FiCloud,
+  FiCloudOff,
+  FiDownload,
+  FiMoon,
+  FiShare2,
+  FiSun
+} from "react-icons/fi"
 import { useHistory, useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import AIAssistant from "./components/AIAssistant"
-import AuthContext from "./context/AuthContext"
 
 const SAVE_INTERVAL_MS = 2000
 const TOOLBAR_OPTIONS = [
@@ -23,7 +33,6 @@ const TOOLBAR_OPTIONS = [
 export default function TextEditor() {
   const { id: documentId } = useParams()
   const history = useHistory()
-  const { user } = useContext(AuthContext)
 
   // Extract share token from URL query params
   const urlParams = new URLSearchParams(window.location.search)
@@ -39,6 +48,29 @@ export default function TextEditor() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareLink, setShareLink] = useState("")
   const [saveStatus, setSaveStatus] = useState("Saved")
+  const [darkMode, setDarkMode] = useState(false)
+  const [hasOfflineChanges, setHasOfflineChanges] = useState(false)
+
+  // Load theme from local storage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme === 'dark') {
+      setDarkMode(true)
+      document.documentElement.setAttribute('data-theme', 'dark')
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const newMode = !darkMode
+    setDarkMode(newMode)
+    if (newMode) {
+      document.documentElement.setAttribute('data-theme', 'dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+      localStorage.setItem('theme', 'light')
+    }
+  }
 
   // Initialize socket connection with JWT authentication
   useEffect(() => {
@@ -47,6 +79,8 @@ export default function TextEditor() {
 
     if (!token) {
       console.error("No authentication token found")
+      toast.error("Authentication required")
+      history.push("/login")
       return
     }
 
@@ -76,13 +110,43 @@ export default function TextEditor() {
 
     s.on("error", (error) => {
       console.error("Socket error:", error.message)
-      alert(error.message || "An error occurred")
+      toast.error(error.message || "An error occurred")
     })
 
     return () => {
       s.disconnect()
     }
-  }, [])
+  }, [history])
+
+  // Warn user about unsaved changes before closing
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (saveStatus !== "Saved") {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [saveStatus])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        if (socket && quill) {
+          socket.emit("save-document", quill.getContents())
+          setSaveStatus("Saving...")
+          setTimeout(() => setSaveStatus("Saved"), 500)
+          toast.success("Document saved!", { duration: 1500 })
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyPress)
+    return () => document.removeEventListener('keydown', handleKeyPress)
+  }, [socket, quill])
 
   // Load document and join collaboration
   useEffect(() => {
@@ -91,6 +155,7 @@ export default function TextEditor() {
     const loadHandler = document => {
       quill.setContents(document)
       quill.enable()
+      toast.success("Document loaded")
     }
 
     socket.once("load-document", loadHandler)
@@ -98,14 +163,23 @@ export default function TextEditor() {
 
     // Handle reconnection
     const connectHandler = () => {
-      console.log("Reconnected, fetching latest document...")
-      socket.emit("get-document", { documentId, shareToken })  // Include share token
+      console.log("Reconnected")
+      toast("Reconnected", { icon: '🟢' })
+
+      if (hasOfflineChanges) {
+        console.log("Syncing offline changes...")
+        socket.emit("save-document", quill.getContents())
+        setHasOfflineChanges(false)
+        toast.success("Offline changes synced!")
+      } else {
+        console.log("Fetching latest document...")
+        socket.emit("get-document", { documentId, shareToken })
+      }
     }
 
     const disconnectHandler = () => {
-      console.log("Disconnected, disabling editor...")
-      quill.disable()
-      quill.setText("Disconnected from server... Trying to reconnect...")
+      console.log("Disconnected from server")
+      // Note: Removed intrusive offline toast - user will see "Offline" status in header instead
     }
 
     socket.on("connect", connectHandler)
@@ -116,7 +190,7 @@ export default function TextEditor() {
       socket.off("disconnect", disconnectHandler)
       socket.off("load-document", loadHandler)
     }
-  }, [socket, quill, documentId, shareToken])  // Add shareToken to dependencies
+  }, [socket, quill, documentId, shareToken, hasOfflineChanges])
 
   // Handle user joined
   useEffect(() => {
@@ -124,7 +198,9 @@ export default function TextEditor() {
 
     const handleUserJoined = ({ user: newUser, activeUsers: users }) => {
       console.log("User joined:", newUser.username)
-      setActiveUsers(users)
+      const uniqueUsers = Array.from(new Map(users.map(u => [u.userId, u])).values())
+      setActiveUsers(uniqueUsers)
+      toast(`${newUser.username} joined`, { icon: '👋', duration: 2000 })
     }
 
     socket.on("user-joined", handleUserJoined)
@@ -140,7 +216,8 @@ export default function TextEditor() {
 
     const handleUserLeft = ({ username, activeUsers: users }) => {
       console.log("User left:", username)
-      setActiveUsers(users)
+      const uniqueUsers = Array.from(new Map(users.map(u => [u.userId, u])).values())
+      setActiveUsers(uniqueUsers)
     }
 
     socket.on("user-left", handleUserLeft)
@@ -155,7 +232,6 @@ export default function TextEditor() {
     if (socket == null) return
 
     const handleTitleUpdate = (newTitle) => {
-      console.log("Title updated by another user:", newTitle)
       setTitle(newTitle)
     }
 
@@ -233,7 +309,7 @@ export default function TextEditor() {
       } catch (error) {
         console.error("Error saving title:", error)
         setIsSavingTitle(false)
-        // Don't emit to socket if save failed
+        toast.error("Failed to save title")
       }
     }, 1000)
 
@@ -281,6 +357,11 @@ export default function TextEditor() {
 
     const handler = (delta, oldDelta, source) => {
       if (source !== "user") return
+
+      if (socket && !socket.connected) {
+        setHasOfflineChanges(true)
+      }
+
       socket.emit("send-changes", delta)
     }
     quill.on("text-change", handler)
@@ -306,6 +387,7 @@ export default function TextEditor() {
   }, [])
 
   const handleGenerateShareLink = async () => {
+    const loadingToast = toast.loading("Generating link...")
     try {
       const response = await axios.post(
         `${process.env.REACT_APP_API_BASE_URL}/api/documents/${documentId}/share`,
@@ -313,154 +395,172 @@ export default function TextEditor() {
       )
       setShareLink(response.data.shareUrl)
       setShowShareModal(true)
+      toast.dismiss(loadingToast)
     } catch (error) {
       console.error("Error generating share link:", error)
-      alert("Failed to generate share link")
+      toast.dismiss(loadingToast)
+      toast.error("Failed to generate share link")
     }
   }
 
   const copyShareLink = () => {
     navigator.clipboard.writeText(shareLink)
-    alert("Share link copied to clipboard!")
+    toast.success("Link copied to clipboard!")
+  }
+
+  const handleExportPDF = () => {
+    window.print()
   }
 
   return (
-    <div>
-      <div style={{
-        background: 'white',
-        padding: '15px 30px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    <div className="editor-container">
+      {/* Editor Header */}
+      <header className="editor-header detail-glass" style={{
+        height: 'var(--header-height)',
+        padding: '0 20px',
         display: 'flex',
         alignItems: 'center',
         gap: '20px',
         position: 'sticky',
         top: 0,
-        zIndex: 10
+        zIndex: 50,
+        background: 'var(--card-bg)',
+        borderBottom: '1px solid var(--glass-border)',
+        backdropFilter: 'blur(10px)'
       }}>
         <button
           onClick={() => history.push('/dashboard')}
-          style={{
-            padding: '8px 16px',
-            background: '#f5f5f5',
-            border: '1px solid #ddd',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="btn-secondary"
+          style={{ padding: '8px', display: 'flex', alignItems: 'center' }}
+          title="Back to Dashboard"
         >
-          ← Back to Dashboard
+          <FiArrowLeft size={20} />
         </button>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{
-            flex: 1,
-            border: 'none',
-            fontSize: '18px',
-            fontWeight: '500',
-            padding: '8px',
-            outline: 'none'
-          }}
-          placeholder="Untitled Document"
-        />
-        {isSavingTitle && (
-          <span style={{ fontSize: '14px', color: '#999' }}>Saving Title...</span>
-        )}
-        <span style={{
-          fontSize: '14px',
-          color: saveStatus === 'Error Saving' ? '#ff6b6b' : '#999',
-          fontWeight: saveStatus === 'Error Saving' ? 'bold' : 'normal'
-        }}>
-          {saveStatus}
-        </span>
 
-        {/* Connection status */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '14px',
-          color: isConnected ? '#52B788' : '#999'
-        }}>
-          <div style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: isConnected ? '#52B788' : '#999'
-          }} />
-          {isConnected ? 'Connected' : 'Disconnected'}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              fontSize: '18px',
+              fontWeight: '600',
+              padding: '4px 8px',
+              outline: 'none',
+              color: 'var(--text-primary)',
+              borderRadius: '4px',
+              width: '100%',
+              transition: 'background 0.2s'
+            }}
+            onFocus={(e) => e.target.style.background = 'var(--input-bg)'}
+            onBlur={(e) => e.target.style.background = 'transparent'}
+            placeholder="Untitled Document"
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingLeft: '8px', fontSize: '13px' }}>
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              color: saveStatus === 'Error Saving' ? 'var(--danger-color)' : 'var(--text-secondary)'
+            }}>
+              {saveStatus === 'Saving...' ? <FiCloud /> :
+                saveStatus === 'Saved' ? <FiCheckCircle style={{ color: 'var(--success-color)' }} /> :
+                  <FiCloudOff />}
+              {isSavingTitle ? "Saving..." : saveStatus}
+            </span>
+
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              color: isConnected ? 'var(--success-color)' : 'var(--text-light)'
+            }}>
+              <div style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                background: isConnected ? 'var(--success-color)' : 'var(--text-light)'
+              }} />
+              {isConnected ? 'Online' : 'Offline'}
+            </span>
+          </div>
         </div>
 
-        {/* Active users */}
+        {/* Active Users */}
         {activeUsers.length > 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '14px'
-          }}>
-            <span>👥 {activeUsers.length}</span>
-            <div style={{
-              display: 'flex',
-              gap: '4px'
-            }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
+            <div style={{ display: 'flex', marginLeft: '10px' }}>
               {activeUsers.slice(0, 3).map((u, i) => (
                 <div
                   key={i}
                   style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    background: u.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '12px',
-                    fontWeight: 'bold'
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: u.color, color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 'bold', border: '2px solid white',
+                    marginLeft: '-10px', fontSize: '12px'
                   }}
                   title={u.username}
                 >
                   {u.username[0].toUpperCase()}
                 </div>
               ))}
+              {activeUsers.length > 3 && (
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '50%',
+                  background: '#e2e8f0', color: '#64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 'bold', border: '2px solid white',
+                  marginLeft: '-10px', fontSize: '12px'
+                }}>
+                  +{activeUsers.length - 3}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        <button
-          onClick={handleGenerateShareLink}
-          style={{
-            padding: '8px 16px',
-            background: '#4ECDC4',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '600'
-          }}
-        >
-          🔗 Share
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={toggleTheme}
+            className="btn-secondary"
+            style={{ padding: '8px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', height: '40px' }}
+            title="Toggle Dark Mode"
+          >
+            {darkMode ? <FiSun /> : <FiMoon />}
+          </button>
 
-        <button
-          onClick={() => setIsAIOpen(true)}
-          style={{
-            padding: '8px 16px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '600'
-          }}
-        >
-          🤖 AI Assistant
-        </button>
-      </div>
+          <button
+            onClick={handleExportPDF}
+            className="btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            title="Export to PDF"
+          >
+            <FiDownload /> PDF
+          </button>
+
+          <button
+            onClick={handleGenerateShareLink}
+            className="btn-primary"
+            style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
+          >
+            <FiShare2 /> Share
+          </button>
+
+          <button
+            onClick={() => setIsAIOpen(true)}
+            style={{
+              padding: '8px 16px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)'
+            }}
+          >
+            ✨ AI
+          </button>
+        </div>
+      </header>
 
       <div className="container" ref={wrapperRef}></div>
 
@@ -469,69 +569,42 @@ export default function TextEditor() {
       {/* Share Modal */}
       {showShareModal && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '30px',
-            borderRadius: '12px',
-            maxWidth: '500px',
-            width: '90%'
-          }}>
-            <h2 style={{ marginTop: 0 }}>Share Document</h2>
-            <p>Anyone with this link can view this document:</p>
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              marginTop: '20px'
-            }}>
+        }} onClick={() => setShowShareModal(false)}>
+          <div className="glass-panel" style={{
+            background: 'var(--card-bg)', padding: '30px', borderRadius: '16px',
+            maxWidth: '500px', width: '90%', border: '1px solid var(--glass-border)'
+          }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Share Document</h2>
+            <p style={{ color: 'var(--text-secondary)' }}>Anyone with this link can view this document:</p>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <input
                 type="text"
                 value={shareLink}
                 readOnly
                 style={{
-                  flex: 1,
-                  padding: '10px',
-                  border: '1px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '14px'
+                  flex: 1, padding: '12px', borderRadius: '8px',
+                  border: '1px solid var(--glass-border)',
+                  background: 'var(--input-bg)', color: 'var(--text-primary)'
                 }}
               />
               <button
                 onClick={copyShareLink}
-                style={{
-                  padding: '10px 20px',
-                  background: '#4ECDC4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
+                className="btn-primary"
+                style={{ width: 'auto', whiteSpace: 'nowrap' }}
               >
-                Copy
+                Copy Link
               </button>
             </div>
+
             <button
               onClick={() => setShowShareModal(false)}
-              style={{
-                marginTop: '20px',
-                padding: '10px 20px',
-                background: '#f5f5f5',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                width: '100%'
-              }}
+              className="btn-secondary"
+              style={{ marginTop: '20px', width: '100%' }}
             >
               Close
             </button>
