@@ -11,13 +11,13 @@ import {
     FiSun,
     FiTrash2
 } from "react-icons/fi"
-import { useHistory } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { v4 as uuidV4 } from "uuid"
 import AuthContext from "../context/AuthContext"
 
 export default function Dashboard() {
     const { user, logout } = useContext(AuthContext)
-    const history = useHistory()
+    const navigate = useNavigate()
     const [documents, setDocuments] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
@@ -70,7 +70,7 @@ export default function Dashboard() {
                 title: "Untitled Document"
             })
             toast.dismiss(loadingToast)
-            history.push(`/documents/${documentId}`)
+            navigate(`/documents/${documentId}`)
         } catch (error) {
             console.error("Error creating document:", error)
             toast.dismiss(loadingToast)
@@ -79,7 +79,7 @@ export default function Dashboard() {
     }
 
     const handleDocumentClick = (documentId) => {
-        history.push(`/documents/${documentId}`)
+        navigate(`/documents/${documentId}`)
     }
 
     const handleDeleteDocument = async (e, documentId) => {
@@ -115,7 +115,7 @@ export default function Dashboard() {
     const handleLogout = () => {
         logout()
         toast.success("Logged out successfully")
-        history.push("/login")
+        navigate("/login")
     }
 
     const formatDate = (dateString, id) => {

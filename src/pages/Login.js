@@ -1,5 +1,5 @@
 import { useContext, useState } from "react"
-import { Link, useHistory } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import AuthContext from "../context/AuthContext"
 
 export default function Login() {
@@ -8,7 +8,7 @@ export default function Login() {
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
     const { login } = useContext(AuthContext)
-    const history = useHistory()
+    const navigate = useNavigate()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -18,7 +18,7 @@ export default function Login() {
         const result = await login(email, password)
 
         if (result.success) {
-            history.push("/dashboard")
+            navigate("/dashboard")
         } else {
             setError(result.message)
             setLoading(false)

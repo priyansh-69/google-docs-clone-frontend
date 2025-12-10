@@ -1,5 +1,5 @@
 import { useContext, useState } from "react"
-import { Link, useHistory } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import AuthContext from "../context/AuthContext"
 
 export default function Register() {
@@ -10,7 +10,7 @@ export default function Register() {
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
     const { register } = useContext(AuthContext)
-    const history = useHistory()
+    const navigate = useNavigate()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -31,7 +31,7 @@ export default function Register() {
         const result = await register(username, email, password)
 
         if (result.success) {
-            history.push("/dashboard")
+            navigate("/dashboard")
         } else {
             setError(result.message)
             setLoading(false)

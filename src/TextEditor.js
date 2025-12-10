@@ -13,7 +13,7 @@ import {
   FiShare2,
   FiSun
 } from "react-icons/fi"
-import { useHistory, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import AIAssistant from "./components/AIAssistant"
 
@@ -32,7 +32,7 @@ const TOOLBAR_OPTIONS = [
 
 export default function TextEditor() {
   const { id: documentId } = useParams()
-  const history = useHistory()
+  const navigate = useNavigate()
 
   // Extract share token from URL query params
   const urlParams = new URLSearchParams(window.location.search)
@@ -80,7 +80,7 @@ export default function TextEditor() {
     if (!token) {
       console.error("No authentication token found")
       toast.error("Authentication required")
-      history.push("/login")
+      navigate("/login")
       return
     }
 
@@ -116,7 +116,7 @@ export default function TextEditor() {
     return () => {
       s.disconnect()
     }
-  }, [history])
+  }, [navigate])
 
   // Warn user about unsaved changes before closing
   useEffect(() => {
@@ -429,7 +429,7 @@ export default function TextEditor() {
         backdropFilter: 'blur(10px)'
       }}>
         <button
-          onClick={() => history.push('/dashboard')}
+          onClick={() => navigate('/dashboard')}
           className="btn-secondary"
           style={{ padding: '8px', display: 'flex', alignItems: 'center' }}
           title="Back to Dashboard"
@@ -533,7 +533,7 @@ export default function TextEditor() {
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             title="Export to PDF"
           >
-            <FiDownload /> PDF
+            <FiDownload /> <span className="btn-label">PDF</span>
           </button>
 
           <button
@@ -541,7 +541,7 @@ export default function TextEditor() {
             className="btn-primary"
             style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}
           >
-            <FiShare2 /> Share
+            <FiShare2 /> <span className="btn-label">Share</span>
           </button>
 
           <button
@@ -557,7 +557,7 @@ export default function TextEditor() {
               boxShadow: '0 4px 6px rgba(102, 126, 234, 0.25)'
             }}
           >
-            ✨ AI
+            ✨ <span className="btn-label">AI</span>
           </button>
         </div>
       </header>

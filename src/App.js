@@ -1,10 +1,10 @@
 import { useContext } from "react"
 import { Toaster } from "react-hot-toast"
 import {
-  Redirect,
+  Navigate,
   Route,
   BrowserRouter as Router,
-  Switch,
+  Routes,
 } from "react-router-dom"
 import TextEditor from "./TextEditor"
 import ErrorBoundary from "./components/ErrorBoundary"
@@ -13,37 +13,21 @@ import Dashboard from "./pages/Dashboard"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 
+import LoadingSpinner from "./components/LoadingSpinner"
+
 // Protected Route Component
-function ProtectedRoute({ children, ...rest }) {
+function ProtectedRoute({ children }) {
   const { user, loading } = useContext(AuthContext)
 
-  return (
-    <Route
-      {...rest}
-      render={({ location }) =>
-        loading ? (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-            fontSize: '1.5rem'
-          }}>
-            Loading...
-          </div>
-        ) : user ? (
-          children
-        ) : (
-          <Redirect
-            to={{
-              pathname: "/login",
-              state: { from: location }
-            }}
-          />
-        )
-      }
-    />
-  )
+  if (loading) {
+    return <LoadingSpinner fullScreen />
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
 }
 
 function App() {
@@ -51,23 +35,30 @@ function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
-          <Switch>
-            <Route path="/login" exact>
-              <Login />
-            </Route>
-            <Route path="/register" exact>
-              <Register />
-            </Route>
-            <ProtectedRoute path="/dashboard" exact>
-              <Dashboard />
-            </ProtectedRoute>
-            <ProtectedRoute path="/documents/:id">
-              <TextEditor />
-            </ProtectedRoute>
-            <Route path="/" exact>
-              <Redirect to="/dashboard" />
-            </Route>
-          </Switch>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/documents/:id"
+              element={
+                <ProtectedRoute>
+                  <TextEditor />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
           <Toaster
             toastOptions={{
               style: {
